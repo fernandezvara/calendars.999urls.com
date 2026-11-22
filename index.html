@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Montserrat:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Dancing+Script:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-BCavmV4E.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-R4O-3YPb.css">
+  <script type="module" crossorigin src="/assets/index-DIRl1XBP.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-jJ1utLX9.css">
 </head>
 <body x-data="calendarApp" x-cloak>
   <!-- Top bar -->
@@ -109,7 +109,7 @@
       <div class="print-container" :class="{ 'single-page': currentView !== 'calendar' }" :style="{ zoom: pageScale }">
         <!-- Front Page -->
         <template x-if="pageRendered('front')">
-          <div class="page" x-show="pageVisible('front')">
+          <div class="page" x-show="pageVisible('front')" :style="getPageStyle('front')">
             <template x-if="slotImage('front')">
               <button type="button" class="btn-page-adjust" data-html2canvas-ignore
                       @click.stop="openCropEditor('front')">
@@ -142,6 +142,7 @@
         <template x-for="month in 12" :key="month">
           <div class="page"
                x-show="pageVisible('m' + month)"
+               :style="getPageStyle('m' + month)"
                :class="'template-' + templateFor(month)">
             <template x-if="getImageForMonth(month)">
               <button type="button" class="btn-page-adjust" data-html2canvas-ignore
@@ -214,7 +215,7 @@
 
         <!-- Year Calendar Page -->
         <template x-if="pageRendered('year')">
-          <div class="page year-calendar-page" x-show="pageVisible('year')">
+          <div class="page year-calendar-page" x-show="pageVisible('year')" :style="getPageStyle('year')">
             <h1 x-text="getYearForYearCalendar()" :style="{...getMonthHeaderStyles(), textAlign: 'center', margin: '20px 0'}"></h1>
             <div class="year-calendar-grid">
               <template x-for="month in 12" :key="month">
@@ -248,7 +249,7 @@
 
         <!-- Back Page -->
         <template x-if="pageRendered('back')">
-          <div class="page" x-show="pageVisible('back')">
+          <div class="page" x-show="pageVisible('back')" :style="getPageStyle('back')">
             <template x-if="slotImage('back')">
               <button type="button" class="btn-page-adjust" data-html2canvas-ignore
                       @click.stop="openCropEditor('back')">
@@ -434,6 +435,17 @@
             </div>
             <p class="sidebar-hint" x-text="t('ui.coverTextHint')"></p>
 
+            <div class="cover-bg-row">
+              <span x-text="t('ui.coverBackground')"></span>
+              <label class="checkbox-label">
+                <input type="checkbox" :checked="!coverBgColor"
+                       @change="coverBgColor = $event.target.checked ? null : styles.pageBgColor">
+                <span x-text="t('ui.sameAsCommon')"></span>
+              </label>
+              <input type="color" :value="coverBgColor || styles.pageBgColor" :disabled="!coverBgColor"
+                     @input="coverBgColor = $event.target.value">
+            </div>
+
             <div class="cover-text-list" x-show="coverTexts.length">
               <template x-for="ct in coverTexts" :key="ct.id">
                 <div class="cover-text-item" :class="{ active: selectedTextId === ct.id }" @click="selectedTextId = ct.id">
@@ -592,11 +604,15 @@
                            :value="getStyleValue(field.key)"
                            :disabled="!fieldEditable(field)"
                            @input="setStyleValue(field.key, $event.target.value)">
-                    <input type="range" min="0" max="1" step="0.1"
-                           :value="getStyleValue(field.opacityKey)"
-                           :disabled="!fieldEditable(field)"
-                           @input="setStyleValue(field.opacityKey, Number($event.target.value))">
-                    <span class="opacity-value" x-text="getStyleValue(field.opacityKey)"></span>
+                    <template x-if="field.opacityKey">
+                      <input type="range" min="0" max="1" step="0.1"
+                             :value="getStyleValue(field.opacityKey)"
+                             :disabled="!fieldEditable(field)"
+                             @input="setStyleValue(field.opacityKey, Number($event.target.value))">
+                    </template>
+                    <template x-if="field.opacityKey">
+                      <span class="opacity-value" x-text="getStyleValue(field.opacityKey)"></span>
+                    </template>
                   </div>
                 </template>
 
