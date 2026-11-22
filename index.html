@@ -12,526 +12,209 @@
   <title>Customizable Calendar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Montserrat:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Dancing+Script:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-4hHR0kj9.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DcrOIOuf.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Montserrat:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Dancing+Script:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-BCavmV4E.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-R4O-3YPb.css">
 </head>
 <body x-data="calendarApp" x-cloak>
-  <!-- Navigation Bar -->
+  <!-- Top bar -->
   <nav class="navbar">
     <div class="nav-content">
       <div class="nav-left">
         <h1 class="app-title" x-text="t('ui.appTitle')"></h1>
-        <input 
-          type="text" 
-          x-model="projectName" 
-          :placeholder="t('ui.projectNamePlaceholder')"
-          class="project-name-input">
+        <span class="nav-project-name" x-text="projectName || t('ui.projectNamePlaceholder')"></span>
       </div>
-      
-      <div class="nav-center">
-        <label>
-          <span x-text="t('ui.year')"></span>
-          <input type="number" x-model.number="year" min="2000" max="2100" class="year-input">
-        </label>
-        
-        <label>
-          <span x-text="t('ui.language')"></span>
-          <select x-model="language" @change="changeLanguage()" class="language-select">
-            <option value="en">English</option>
-            <option value="es">Español</option>
-          </select>
-        </label>
+
+      <!-- Tabs -->
+      <div class="tab-bar" role="tablist">
+        <template x-for="tab in ['gallery', 'settings', 'page', 'calendar']" :key="tab">
+          <button type="button"
+                  role="tab"
+                  class="tab"
+                  :class="{ active: currentView === tab }"
+                  :aria-selected="currentView === tab"
+                  @click="currentView = tab"
+                  x-text="t('ui.tab_' + tab)"></button>
+        </template>
       </div>
-      
-      <div class="nav-right">
-        <button @click="saveProject()" class="btn btn-primary" :disabled="isSaving">
-          <span x-text="isSaving ? t('ui.saving') : t('ui.saveProject')"></span>
-        </button>
-        <button @click="$refs.importInput.click()" class="btn btn-secondary">
-          <span x-text="t('ui.importProject')"></span>
-        </button>
-        <input type="file" x-ref="importInput" @change="importProject($event)" accept=".json" style="display: none;">
-        <button @click="exportProject()" class="btn btn-secondary">
-          <span x-text="t('ui.exportProject')"></span>
-        </button>
-      </div>
-    </div>
-    
-    <div class="nav-status" x-show="lastSaved">
-      <span x-text="t('ui.lastSaved') + ': ' + formatTime(lastSaved)"></span>
     </div>
   </nav>
 
-  <!-- Main Content Area -->
-  <main class="main-content">
-    <!-- View Toggle -->
-    <div class="view-toggle">
-      <button 
-        @click="currentView = 'edit'" 
-        :class="{'active': currentView === 'edit'}"
-        class="btn"
-        x-text="t('ui.edit')">
-      </button>
-      <button 
-        @click="currentView = 'preview'" 
-        :class="{'active': currentView === 'preview'}"
-        class="btn"
-        x-text="t('ui.preview')">
-      </button>
-    </div>
+  <main class="workspace" :class="'view-' + currentView">
+    <!-- ===================== LEFT ===================== -->
 
-    <!-- Edit View -->
-    <div x-show="currentView === 'edit'" class="edit-view">
-      <!-- Image Manager Panel -->
-      <div class="panel image-manager-panel">
-        <h2 x-text="t('ui.imageManager')"></h2>
-        
-        <div class="upload-zone" 
-             @drop.prevent="handleDrop($event)"
-             @dragover.prevent="dragOver = true"
-             @dragleave.prevent="dragOver = false"
-             :class="{'drag-over': dragOver}">
-          <input type="file" 
-                 x-ref="imageInput" 
-                 multiple 
-                 accept="image/*" 
-                 @change="handleUpload($event)"
-                 style="display: none;">
-          <button @click="$refs.imageInput.click()" class="btn btn-primary">
-            <span x-text="t('ui.uploadImage')"></span>
-          </button>
-          <p x-text="t('ui.dragDropHint')"></p>
-        </div>
-        
-        <div class="image-grid">
-          <!-- Front Page -->
-          <div class="image-slot">
-            <div class="month-label" x-text="t('ui.frontPage')"></div>
-            <template x-if="frontPageImage && getImageById(frontPageImage)">
-              <div class="image-preview">
-                <img :src="getImageById(frontPageImage).preview" :alt="t('ui.frontPage')">
-                <button @click="frontPageImage = null" class="btn-remove" :title="t('ui.remove')">×</button>
-              </div>
-            </template>
-            <template x-if="!frontPageImage || !getImageById(frontPageImage)">
-              <div class="image-placeholder">
-                <select x-model="frontPageImage" class="assign-select">
-                  <option :value="null" x-text="t('ui.disabled')"></option>
-                  <template x-for="img in images" :key="img.id">
-                    <option :value="img.id" x-text="img.fileName"></option>
-                  </template>
-                </select>
-              </div>
-            </template>
-          </div>
-          
-          <!-- Monthly Pages -->
-          <template x-for="month in 12" :key="month">
-            <div class="image-slot">
-              <div class="month-label" x-text="t('months')[month - 1]"></div>
-              <template x-if="getImageForMonth(month)">
-                <div class="image-preview">
-                  <img :src="getImageForMonth(month).preview" :alt="t('months')[month - 1]">
-                  <button @click="removeImageFromMonth(month)" class="btn-remove" :title="t('ui.remove')">×</button>
-                </div>
-              </template>
-              <template x-if="!getImageForMonth(month)">
-                <div class="image-placeholder">
-                  <select @change="assignImageToMonth($event.target.value, month); $event.target.value = ''" class="assign-select">
-                    <option value="" x-text="t('ui.selectImage')"></option>
-                    <template x-for="img in unassignedImages" :key="img.id">
-                      <option :value="img.id" x-text="img.fileName"></option>
-                    </template>
-                  </select>
-                </div>
-              </template>
-            </div>
-          </template>
-          
-          <!-- Year Calendar Page -->
-          <div class="image-slot">
-            <div class="month-label" x-text="t('ui.yearCalendar')"></div>
-            <div class="image-placeholder">
-              <select x-model="yearCalendarEnabled" class="assign-select">
-                <option value="disabled" x-text="t('ui.disabled')"></option>
-                <option value="same" x-text="t('ui.sameYear')"></option>
-                <option value="next" x-text="t('ui.nextYear')"></option>
-              </select>
-            </div>
-          </div>
-          
-          <!-- Back Page -->
-          <div class="image-slot">
-            <div class="month-label" x-text="t('ui.backPage')"></div>
-            <template x-if="backPageImage && getImageById(backPageImage)">
-              <div class="image-preview">
-                <img :src="getImageById(backPageImage).preview" :alt="t('ui.backPage')">
-                <button @click="backPageImage = null" class="btn-remove" :title="t('ui.remove')">×</button>
-              </div>
-            </template>
-            <template x-if="!backPageImage || !getImageById(backPageImage)">
-              <div class="image-placeholder">
-                <select x-model="backPageImage" class="assign-select">
-                  <option :value="null" x-text="t('ui.disabled')"></option>
-                  <template x-for="img in images" :key="img.id">
-                    <option :value="img.id" x-text="img.fileName"></option>
-                  </template>
-                </select>
-              </div>
-            </template>
-          </div>
-        </div>
+    <!-- Gallery (left) -->
+    <section class="gallery-main" x-show="currentView === 'gallery'">
+      <div class="upload-zone"
+           @drop.prevent="handleDrop($event)"
+           @dragover.prevent="dragOver = true"
+           @dragleave.prevent="dragOver = false"
+           :class="{'drag-over': dragOver}">
+        <input type="file"
+               x-ref="imageInput"
+               multiple
+               accept="image/*"
+               @change="handleUpload($event)"
+               style="display: none;">
+        <button @click="$refs.imageInput.click()" class="btn btn-primary">
+          <span x-text="t('ui.uploadImage')"></span>
+        </button>
+        <p x-text="t('ui.dragDropHint')"></p>
       </div>
 
-      <!-- Calendar Editor Panel -->
-      <div class="panel calendar-editor-panel">
-        <h2 x-text="t('ui.calendarEditor')"></h2>
-        
-        <!-- Calendar Settings -->
-        <div class="calendar-settings">
-          <h3 x-text="t('ui.calendarSettings')"></h3>
-          
-          <label>
-            <span x-text="t('ui.firstDayOfWeek')"></span>
-            <select x-model.number="firstDayOfWeek" class="settings-select">
-              <option :value="0" x-text="t('ui.sunday')"></option>
-              <option :value="1" x-text="t('ui.monday')"></option>
-              <option :value="2" x-text="t('ui.tuesday')"></option>
-              <option :value="3" x-text="t('ui.wednesday')"></option>
-              <option :value="4" x-text="t('ui.thursday')"></option>
-              <option :value="5" x-text="t('ui.friday')"></option>
-              <option :value="6" x-text="t('ui.saturday')"></option>
-            </select>
-          </label>
-          
-          <label>
-            <span x-text="t('ui.dayNameLength')"></span>
-            <select x-model.number="dayNameLength" class="settings-select">
-              <option :value="1" x-text="t('ui.oneLetterDay')"></option>
-              <option :value="2" x-text="t('ui.twoLetterDay')"></option>
-              <option :value="3" x-text="t('ui.threeLetterDay')"></option>
-            </select>
-          </label>
-        </div>
-        
-        <select x-model.number="selectedMonth" class="month-select">
-          <template x-for="(month, idx) in t('months')" :key="idx">
-            <option :value="idx" x-text="month"></option>
+      <p class="gallery-hint" x-show="images.length"
+         x-text="selectedImageId ? t('ui.galleryHintSelected') : t('ui.galleryHint')"></p>
+      <p class="gallery-empty" x-show="!images.length" x-text="t('ui.galleryEmpty')"></p>
+
+      <div class="gallery-grid">
+        <template x-for="img in images" :key="img.id">
+          <div class="gallery-card"
+               :class="{ selected: selectedImageId === img.id, unused: !slotsUsingImage(img.id).length }"
+               draggable="true"
+               @dragstart="onImageDragStart($event, img.id)"
+               @click="selectGalleryImage(img.id)"
+               :title="img.fileName">
+            <div class="gallery-card-image">
+              <img :src="img.preview" :alt="img.fileName" draggable="false">
+            </div>
+            <button type="button" class="btn-remove" @click.stop="deleteImage(img.id)" :title="t('ui.deleteImage')">×</button>
+            <div class="gallery-card-info">
+              <span class="file-name" x-text="img.fileName"></span>
+              <div class="used-badges">
+                <template x-for="slot in slotsUsingImage(img.id)" :key="slot">
+                  <span class="badge" x-text="slotShortLabel(slot)"></span>
+                </template>
+                <span class="badge badge-muted" x-show="!slotsUsingImage(img.id).length" x-text="t('ui.unused')"></span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Page stage (left): one set of pages shared by Calendar settings, Page and Full calendar -->
+    <section class="stage" x-ref="stage" x-show="currentView !== 'gallery'">
+      <div class="stage-toolbar" x-show="currentView === 'settings'">
+        <span x-text="t('ui.sampleMonth')"></span>
+        <select x-model.number="sampleMonth" class="settings-select">
+          <template x-for="(name, idx) in t('months')" :key="idx">
+            <option :value="idx + 1" :selected="idx + 1 === sampleMonth" x-text="name"></option>
           </template>
         </select>
-        
-        <div class="calendar-grid-editor">
-          <template x-for="day in getDayNames()" :key="day">
-            <div class="day-name-header" x-text="day"></div>
-          </template>
-          
-          <template x-for="date in getMonthDatesForEditor()" :key="date ? date.toISOString() : Math.random()">
-            <div class="date-cell-editor" 
-                 @click="date && openNoteEditor(date)"
-                 :class="{
-                   'weekend': date && isWeekend(date),
-                   'has-note': date && hasNote(date),
-                   'today': date && isToday(date),
-                   'empty': !date
-                 }">
-              <span class="date-number" x-text="date ? date.getDate() : ''"></span>
-              <span class="note-indicator" x-show="date && hasNote(date)">●</span>
-            </div>
-          </template>
-        </div>
+        <span class="badge badge-warn"
+              x-show="monthOverrideCount(sampleMonth)"
+              x-text="t('ui.monthHasOverrides').replace('{n}', monthOverrideCount(sampleMonth))"></span>
       </div>
 
-      <!-- Style Customizer Panel -->
-      <div class="panel style-panel">
-        <h2 x-text="t('ui.styleCustomizer')"></h2>
-        
-        <div class="style-section">
-          <h3 x-text="t('ui.template')"></h3>
-          <div class="template-selector">
-            <button @click="template = 'top'" 
-                    :class="{'active': template === 'top'}"
-                    class="btn btn-template"
-                    x-text="t('ui.templateTop')">
-            </button>
-            <button @click="template = 'overlay'" 
-                    :class="{'active': template === 'overlay'}"
-                    class="btn btn-template"
-                    x-text="t('ui.templateOverlay')">
-            </button>
-          </div>
-        </div>
-
-        <div class="style-section">
-          <h3 x-text="t('ui.colors')"></h3>
-          <div class="color-controls">
-            <div class="color-item">
-              <span x-text="t('ui.textColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.textColor">
-                <input type="range" x-model.number="styles.textColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.textColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.dateColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.dateColor">
-                <input type="range" x-model.number="styles.dateColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.dateColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.weekendColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.weekendColor">
-                <input type="range" x-model.number="styles.weekendColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.weekendColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.monthHeaderColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.monthHeaderColor">
-                <input type="range" x-model.number="styles.monthHeaderColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.monthHeaderColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.dayNameColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.dayNameColor">
-                <input type="range" x-model.number="styles.dayNameColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.dayNameColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.noteColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.noteColor">
-                <input type="range" x-model.number="styles.noteColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.noteColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.cellBgColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.cellBgColor">
-                <input type="range" x-model.number="styles.cellBgOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.cellBgOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.cellBorderColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.cellBorderColor">
-                <input type="range" x-model.number="styles.cellBorderColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.cellBorderColorOpacity"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="style-section">
-          <h3 x-text="t('ui.fonts')"></h3>
-          <label>
-            <span x-text="t('ui.fontFamily')"></span>
-            <select x-model="styles.fontFamily">
-              <optgroup label="System Fonts">
-                <option value="Arial">Arial</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Times New Roman">Times New Roman</option>
-                <option value="Courier New">Courier New</option>
-                <option value="Verdana">Verdana</option>
-              </optgroup>
-              <optgroup label="Google Fonts">
-                <option value="Roboto">Roboto</option>
-                <option value="Open Sans">Open Sans</option>
-                <option value="Lato">Lato</option>
-                <option value="Montserrat">Montserrat</option>
-                <option value="Playfair Display">Playfair Display</option>
-                <option value="Merriweather">Merriweather</option>
-                <option value="Raleway">Raleway</option>
-                <option value="Poppins">Poppins</option>
-                <option value="Dancing Script">Dancing Script</option>
-                <option value="Pacifico">Pacifico</option>
-              </optgroup>
-            </select>
-          </label>
-          <label>
-            <span x-text="t('ui.fontSize')"></span>
-            <input type="number" x-model.number="styles.fontSize" min="8" max="24">
-          </label>
-          <label>
-            <span x-text="t('ui.monthHeaderSize')"></span>
-            <input type="number" x-model.number="styles.monthHeaderSize" min="16" max="48">
-          </label>
-          <label>
-            <span x-text="t('ui.monthHeaderAlign')"></span>
-            <select x-model="styles.monthHeaderAlign">
-              <option value="left" x-text="t('ui.alignLeft')"></option>
-              <option value="center" x-text="t('ui.alignCenter')"></option>
-              <option value="right" x-text="t('ui.alignRight')"></option>
-            </select>
-          </label>
-          <label>
-            <span x-text="t('ui.monthHeaderTransform')"></span>
-            <select x-model="styles.monthHeaderTransform">
-              <option value="normal" x-text="t('ui.textNormal')"></option>
-              <option value="uppercase" x-text="t('ui.textUppercase')"></option>
-            </select>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" x-model="styles.monthHeaderShadow">
-            <span x-text="t('ui.monthHeaderShadow')"></span>
-          </label>
-        </div>
-
-        <div class="style-section">
-          <h3 x-text="t('ui.borders')"></h3>
-          <label>
-            <span x-text="t('ui.borderWidth')"></span>
-            <input type="number" x-model.number="styles.cellBorderWidth" min="0" max="10">
-          </label>
-          <label>
-            <span x-text="t('ui.borderStyle')"></span>
-            <select x-model="styles.cellBorderStyle">
-              <option value="solid">Solid</option>
-              <option value="dashed">Dashed</option>
-              <option value="dotted">Dotted</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="style-section" x-show="template === 'overlay'">
-          <h3 x-text="t('ui.opacity')"></h3>
-          <label>
-            <span x-text="t('ui.imageOpacity')"></span>
-            <input type="range" x-model.number="styles.overlayOpacity" min="0" max="1" step="0.1">
-            <span x-text="styles.overlayOpacity"></span>
-          </label>
-          <label>
-            <span x-text="t('ui.calendarOpacity')"></span>
-            <input type="range" x-model.number="styles.calendarOpacity" min="0" max="1" step="0.1">
-            <span x-text="styles.calendarOpacity"></span>
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <!-- Preview View -->
-    <div x-show="currentView === 'preview'" class="preview-view">
-      <div class="preview-main">
-        <div class="print-container">
-        
+      <div class="print-container" :class="{ 'single-page': currentView !== 'calendar' }" :style="{ zoom: pageScale }">
         <!-- Front Page -->
-        <template x-if="frontPageImage">
-          <div class="page">
-            <template x-if="getImageById(frontPageImage)">
-              <img :src="getImageById(frontPageImage).fullResolution" 
-                   style="width: 100%; height: 100%; object-fit: cover;">
+        <template x-if="pageRendered('front')">
+          <div class="page" x-show="pageVisible('front')">
+            <template x-if="slotImage('front')">
+              <button type="button" class="btn-page-adjust" data-html2canvas-ignore
+                      @click.stop="openCropEditor('front')">
+                <span aria-hidden="true">✥</span> <span x-text="t('ui.adjustImage')"></span>
+              </button>
             </template>
-            <template x-if="!getImageById(frontPageImage)">
-              <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 2rem;">
-                <span x-text="t('ui.frontPage')"></span>
+            <template x-if="slotImage('front')">
+              <div class="image-frame full-frame editable-image"
+                   @click="openCropEditor('front')"
+                   :title="t('ui.adjustImage')">
+                <img :src="slotImage('front').fullResolution" :style="getSlotImgStyle('front')" alt="">
               </div>
+            </template>
+            <template x-if="!slotImage('front') && !coverTexts.length">
+              <div class="page-placeholder" x-text="t('ui.frontNoContent')"></div>
+            </template>
+            <template x-for="ct in coverTexts" :key="ct.id">
+              <div class="cover-text"
+                   :class="{ editable: coverTextEditable, selected: coverTextEditable && selectedTextId === ct.id }"
+                   :style="coverTextStyle(ct)"
+                   :title="coverTextEditable ? t('ui.dragToPlace') : ''"
+                   x-text="renderCoverText(ct)"
+                   @pointerdown="startTextDrag($event, ct)"
+                   @click.stop></div>
             </template>
           </div>
         </template>
-        
+
         <!-- Monthly Pages -->
         <template x-for="month in 12" :key="month">
-          <div class="page" 
-               :class="'template-' + template">
-            
-            <!-- Template: Image Top -->
-            <template x-if="template === 'top'">
-              <div class="page-content">
-                <div class="image-container">
+          <div class="page"
+               x-show="pageVisible('m' + month)"
+               :class="'template-' + templateFor(month)">
+            <template x-if="getImageForMonth(month)">
+              <button type="button" class="btn-page-adjust" data-html2canvas-ignore
+                      @click.stop="openCropEditor('m' + month)">
+                <span aria-hidden="true">✥</span> <span x-text="t('ui.adjustImage')"></span>
+              </button>
+            </template>
+
+            <div class="page-content" :class="{ 'overlay-mode': templateFor(month) === 'overlay' }">
+              <!-- Template: Image Top -->
+              <template x-if="templateFor(month) === 'top'">
+                <div class="image-container image-frame">
                   <template x-if="getImageForMonth(month)">
-                    <img :src="getImageForMonth(month).fullResolution" :alt="t('months')[month - 1]">
+                    <img :src="getImageForMonth(month).fullResolution"
+                         :alt="t('months')[month - 1]"
+                         :style="getSlotImgStyle('m' + month)"
+                         class="editable-image"
+                         :title="t('ui.adjustImage')"
+                         @click="openCropEditor('m' + month)">
                   </template>
                   <template x-if="!getImageForMonth(month)">
                     <div class="no-image" x-text="t('ui.noImage')"></div>
                   </template>
                 </div>
-                <div class="calendar-container">
-                  <h2 x-text="t('months')[month - 1]" :style="getMonthHeaderStyles()"></h2>
-                  
-                  <table class="calendar-table" :style="getTableStyles()">
-                    <thead>
+              </template>
+
+              <!-- Template: Image Overlay -->
+              <template x-if="templateFor(month) === 'overlay'">
+                <div class="background-image image-frame" :style="getOverlayFrameStyle(month)">
+                  <template x-if="getImageForMonth(month)">
+                    <img :src="getImageForMonth(month).fullResolution" :style="getSlotImgStyle('m' + month)" alt="">
+                  </template>
+                </div>
+              </template>
+
+              <div :class="templateFor(month) === 'overlay' ? 'calendar-overlay' : 'calendar-container'"
+                   :style="templateFor(month) === 'overlay' ? getCalendarOverlayStyle(month) : {}">
+                <h2 x-text="t('months')[month - 1]" :style="getMonthHeaderStyles(month)"></h2>
+
+                <table class="calendar-table">
+                  <thead>
+                    <tr>
+                      <template x-for="day in getDayNames()" :key="day">
+                        <th x-text="day" :style="getDayNameStyles(month)"></th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(week, weekIdx) in getMonthWeeks(month)" :key="weekIdx">
                       <tr>
-                        <template x-for="day in getDayNames()" :key="day">
-                          <th x-text="day" :style="getDayNameStyles()"></th>
+                        <template x-for="(date, idx) in week" :key="idx">
+                          <td :style="getCellStyles(date, month)">
+                            <span x-text="date ? date.getDate() : ''"
+                                  :style="getDateStyles(date, month)"></span>
+                            <template x-if="date && hasNote(date)">
+                              <div class="note"
+                                   :style="getNoteStyles(date, month)"
+                                   x-text="getNote(date)?.text"></div>
+                            </template>
+                          </td>
                         </template>
                       </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="(week, weekIdx) in getMonthWeeks(month)" :key="weekIdx">
-                        <tr>
-                          <template x-for="(date, idx) in week" :key="idx">
-                            <td :style="getCellStyles(date)">
-                              <span x-text="date ? date.getDate() : ''" 
-                                    :style="getDateStyles(date)"></span>
-                              <template x-if="date && hasNote(date)">
-                                <div class="note" 
-                                     :style="getNoteStyles(date)"
-                                     x-text="getNote(date).text"></div>
-                              </template>
-                            </td>
-                          </template>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
+                    </template>
+                  </tbody>
+                </table>
               </div>
-            </template>
-            
-            <!-- Template: Image Overlay -->
-            <template x-if="template === 'overlay'">
-              <div class="page-content overlay-mode">
-                <div class="background-image" 
-                     :style="getBackgroundImageStyle(month)"></div>
-                <div class="calendar-overlay" 
-                     :style="{opacity: styles.calendarOpacity}">
-                  <h2 x-text="t('months')[month - 1]" :style="getMonthHeaderStyles()"></h2>
-                  
-                  <table class="calendar-table" :style="getTableStyles()">
-                    <thead>
-                      <tr>
-                        <template x-for="day in getDayNames()" :key="day">
-                          <th x-text="day" :style="getDayNameStyles()"></th>
-                        </template>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="(week, weekIdx) in getMonthWeeks(month)" :key="weekIdx">
-                        <tr>
-                          <template x-for="(date, idx) in week" :key="idx">
-                            <td :style="getCellStyles(date)">
-                              <span x-text="date ? date.getDate() : ''" 
-                                    :style="getDateStyles(date)"></span>
-                              <template x-if="date && hasNote(date)">
-                                <div class="note" 
-                                     :style="getNoteStyles(date)"
-                                     x-text="getNote(date).text"></div>
-                              </template>
-                            </td>
-                          </template>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </template>
+            </div>
           </div>
         </template>
-        
+
         <!-- Year Calendar Page -->
-        <template x-if="yearCalendarEnabled !== 'disabled'">
-          <div class="page year-calendar-page">
+        <template x-if="pageRendered('year')">
+          <div class="page year-calendar-page" x-show="pageVisible('year')">
             <h1 x-text="getYearForYearCalendar()" :style="{...getMonthHeaderStyles(), textAlign: 'center', margin: '20px 0'}"></h1>
             <div class="year-calendar-grid">
               <template x-for="month in 12" :key="month">
@@ -562,215 +245,467 @@
             </div>
           </div>
         </template>
-        
+
         <!-- Back Page -->
-        <template x-if="backPageImage">
-          <div class="page">
-            <template x-if="getImageById(backPageImage)">
-              <img :src="getImageById(backPageImage).fullResolution" 
-                   style="width: 100%; height: 100%; object-fit: cover;">
+        <template x-if="pageRendered('back')">
+          <div class="page" x-show="pageVisible('back')">
+            <template x-if="slotImage('back')">
+              <button type="button" class="btn-page-adjust" data-html2canvas-ignore
+                      @click.stop="openCropEditor('back')">
+                <span aria-hidden="true">✥</span> <span x-text="t('ui.adjustImage')"></span>
+              </button>
             </template>
-            <template x-if="!getImageById(backPageImage)">
-              <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 2rem;">
-                <span x-text="t('ui.backPage')"></span>
+            <template x-if="slotImage('back')">
+              <div class="image-frame full-frame editable-image"
+                   @click="openCropEditor('back')"
+                   :title="t('ui.adjustImage')">
+                <img :src="slotImage('back').fullResolution" :style="getSlotImgStyle('back')" alt="">
               </div>
+            </template>
+            <template x-if="!slotImage('back')">
+              <div class="page-placeholder" x-text="t('ui.pageNoImage')"></div>
             </template>
           </div>
         </template>
-        
       </div>
-    </div>
-    
-    <!-- Style Customizer Sidebar for Preview -->
-    <div class="preview-sidebar">
-      <div class="panel style-panel-preview">
-        <h2 x-text="t('ui.styleCustomizer')"></h2>
-        
-        <div class="style-section">
-          <h3 x-text="t('ui.pageSize')"></h3>
+    </section>
+
+    <!-- ===================== RIGHT (sidebar) ===================== -->
+    <aside class="sidebar">
+
+      <!-- Gallery: page slots -->
+      <div x-show="currentView === 'gallery'" class="sidebar-section">
+        <div class="sidebar-title">
+          <h2 x-text="t('ui.pages')"></h2>
+          <button type="button" class="btn btn-secondary btn-small" @click="autoFillMonths()"
+                  :disabled="!images.length" x-text="t('ui.autoFillMonths')"></button>
+        </div>
+        <div class="slot-list">
+          <template x-for="slot in imageSlots" :key="slot">
+            <div class="slot-row"
+                 :class="{ 'drag-over': dragSlot === slot, 'can-assign': !!selectedImageId, 'is-empty': !slotImage(slot) }"
+                 @dragover="onSlotDragOver($event, slot)"
+                 @dragleave="dragSlot === slot && (dragSlot = null)"
+                 @drop="onSlotDrop($event, slot)"
+                 @click="onSlotClick(slot)">
+              <div class="slot-thumb">
+                <template x-if="slotImage(slot)">
+                  <div class="image-frame thumb-frame" :style="getThumbFrameStyle(slot)">
+                    <img :src="slotImage(slot).preview" :style="getSlotImgStyle(slot)" alt="" draggable="false">
+                  </div>
+                </template>
+                <template x-if="!slotImage(slot)">
+                  <span class="slot-empty" x-text="t('ui.dropHere')"></span>
+                </template>
+              </div>
+              <div class="slot-info">
+                <strong x-text="slotLabel(slot)"></strong>
+                <small x-show="!slotImage(slot) && slot === 'front' && !coverTexts.length" x-text="t('ui.frontDisabledHint')"></small>
+                <small x-show="!slotImage(slot) && slot === 'front' && coverTexts.length" x-text="t('ui.frontTextOnly')"></small>
+                <small x-show="!slotImage(slot) && slot === 'back'" x-text="t('ui.pageDisabledHint')"></small>
+                <small x-show="slotImage(slot)" x-text="slotImage(slot) ? slotImage(slot).fileName : ''"></small>
+              </div>
+              <div class="slot-actions">
+                <button type="button" class="icon-btn" x-show="slotImage(slot)" @click.stop="openCropEditor(slot)" :title="t('ui.adjustImage')">✥</button>
+                <button type="button" class="icon-btn" @click.stop="openPage(slot)" :title="t('ui.openInPageTab')">↗</button>
+                <button type="button" class="icon-btn icon-btn-danger" x-show="slotImage(slot)" @click.stop="clearSlot(slot)" :title="t('ui.remove')">×</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Calendar settings: common configuration -->
+      <div x-show="currentView === 'settings'" class="sidebar-section">
+        <h2 x-text="t('ui.calendarSettings')"></h2>
+        <div class="settings-form">
+          <label>
+            <span x-text="t('ui.calendarName')"></span>
+            <input type="text"
+                   x-model="projectName"
+                   :placeholder="t('ui.projectNamePlaceholder')"
+                   class="settings-input">
+          </label>
+          <label>
+            <span x-text="t('ui.year')"></span>
+            <input type="number" x-model.number="year" min="2000" max="2100" class="settings-input">
+          </label>
+          <label>
+            <span x-text="t('ui.language')"></span>
+            <select x-model="language" @change="changeLanguage()" class="settings-select">
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </label>
+          <label>
+            <span x-text="t('ui.pageSize')"></span>
+            <select x-model="pageSize" class="settings-select">
+              <option value="a4" x-text="t('ui.pageSizeA4')"></option>
+              <option value="a3" x-text="t('ui.pageSizeA3')"></option>
+              <option value="letter" x-text="t('ui.pageSizeLetter')"></option>
+            </select>
+          </label>
+          <label>
+            <span x-text="t('ui.firstDayOfWeek')"></span>
+            <select x-model.number="firstDayOfWeek" class="settings-select">
+              <template x-for="(d, idx) in ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']" :key="d">
+                <option :value="idx" :selected="idx === firstDayOfWeek" x-text="t('ui.' + d)"></option>
+              </template>
+            </select>
+          </label>
+          <label>
+            <span x-text="t('ui.dayNameLength')"></span>
+            <select x-model.number="dayNameLength" class="settings-select">
+              <option :value="1" :selected="dayNameLength === 1" x-text="t('ui.oneLetterDay')"></option>
+              <option :value="2" :selected="dayNameLength === 2" x-text="t('ui.twoLetterDay')"></option>
+              <option :value="3" :selected="dayNameLength === 3" x-text="t('ui.threeLetterDay')"></option>
+            </select>
+          </label>
+          <label>
+            <span x-text="t('ui.yearCalendar')"></span>
+            <select x-model="yearCalendarEnabled" class="settings-select">
+              <option value="disabled" x-text="t('ui.disabled')"></option>
+              <option value="same" x-text="t('ui.sameYear')"></option>
+              <option value="next" x-text="t('ui.nextYear')"></option>
+            </select>
+          </label>
+        </div>
+        <h2 class="sidebar-subtitle" x-text="t('ui.commonStyles')"></h2>
+        <p class="sidebar-hint" x-text="t('ui.commonStylesHint')"></p>
+      </div>
+
+      <!-- Page: picker, image, notes -->
+      <div x-show="currentView === 'page'" class="sidebar-section">
+        <div class="page-picker">
+          <button type="button" class="icon-btn" @click="stepPage(-1)" :title="t('ui.previousPage')">◀</button>
+          <select class="settings-select" @change="selectedPage = $event.target.value; changeImageOpen = false">
+            <template x-for="key in pagePickerList" :key="key">
+              <option :value="key" :selected="key === selectedPage" x-text="slotLabel(key)"></option>
+            </template>
+          </select>
+          <button type="button" class="icon-btn" @click="stepPage(1)" :title="t('ui.nextPage')">▶</button>
+        </div>
+
+        <!-- Image of the page -->
+        <template x-if="selectedPage !== 'year'">
+          <section class="page-image-section">
+            <h3 x-text="t('ui.image')"></h3>
+            <div class="page-image-row">
+              <div class="slot-thumb slot-thumb-large">
+                <template x-if="slotImage(selectedPage)">
+                  <div class="image-frame thumb-frame" :style="getThumbFrameStyle(selectedPage)">
+                    <img :src="slotImage(selectedPage).preview" :style="getSlotImgStyle(selectedPage)" alt="">
+                  </div>
+                </template>
+                <template x-if="!slotImage(selectedPage)">
+                  <span class="slot-empty" x-text="t('ui.noImage')"></span>
+                </template>
+              </div>
+              <div class="page-image-actions">
+                <button type="button" class="btn btn-secondary btn-small" @click="changeImageOpen = !changeImageOpen"
+                        x-text="slotImage(selectedPage) ? t('ui.changeImage') : t('ui.chooseImage')"></button>
+                <button type="button" class="btn btn-secondary btn-small" x-show="slotImage(selectedPage)"
+                        @click="openCropEditor(selectedPage)" x-text="t('ui.adjustImage')"></button>
+                <button type="button" class="btn btn-danger btn-small" x-show="slotImage(selectedPage)"
+                        @click="clearSlot(selectedPage)" x-text="t('ui.remove')"></button>
+              </div>
+            </div>
+            <div class="image-strip" x-show="changeImageOpen">
+              <template x-for="img in images" :key="img.id">
+                <button type="button" class="image-strip-item"
+                        :class="{ active: pageImages[selectedPage] === img.id }"
+                        @click="assignImage(selectedPage, img.id); changeImageOpen = false"
+                        :title="img.fileName">
+                  <img :src="img.preview" alt="">
+                </button>
+              </template>
+              <p class="sidebar-hint" x-show="!images.length" x-text="t('ui.galleryEmpty')"></p>
+            </div>
+          </section>
+        </template>
+
+        <!-- Text on the cover (front page only) -->
+        <template x-if="selectedPage === 'front'">
+          <section class="cover-text-section"
+                   x-effect="if (!selectedText && coverTexts.length) selectedTextId = coverTexts[0].id">
+            <div class="section-title">
+              <h3 x-text="t('ui.coverText')"></h3>
+              <button type="button" class="btn btn-primary btn-small" @click="addCoverText()" x-text="'+ ' + t('ui.addText')"></button>
+            </div>
+            <p class="sidebar-hint" x-text="t('ui.coverTextHint')"></p>
+
+            <div class="cover-text-list" x-show="coverTexts.length">
+              <template x-for="ct in coverTexts" :key="ct.id">
+                <div class="cover-text-item" :class="{ active: selectedTextId === ct.id }" @click="selectedTextId = ct.id">
+                  <span class="cover-text-item-label" x-text="renderCoverText(ct) || t('ui.emptyText')"></span>
+                  <button type="button" class="icon-btn icon-btn-danger" @click.stop="removeCoverText(ct.id)" :title="t('ui.delete')">×</button>
+                </div>
+              </template>
+            </div>
+
+            <template x-if="selectedText">
+              <div class="cover-text-editor">
+                <label class="field">
+                  <span x-text="t('ui.text')"></span>
+                  <textarea rows="2" class="settings-input" x-model="selectedText.text"></textarea>
+                  <small class="sidebar-hint" x-text="t('ui.textTokensHint')"></small>
+                </label>
+
+                <div class="field">
+                  <span x-text="t('ui.position')"></span>
+                  <div class="position-grid">
+                    <template x-for="pos in textPositions" :key="pos.id">
+                      <button type="button"
+                              class="position-cell"
+                              :class="{ active: textPositionId(selectedText) === pos.id }"
+                              :title="t('ui.pos_' + pos.id)"
+                              :aria-label="t('ui.pos_' + pos.id)"
+                              @click="setTextPosition(selectedText, pos.id)"><span></span></button>
+                    </template>
+                  </div>
+                  <small class="sidebar-hint" x-text="t('ui.dragHint')"></small>
+                </div>
+
+                <label class="field">
+                  <span x-text="t('ui.fontFamily')"></span>
+                  <select class="settings-select" :style="{ fontFamily: selectedText.fontFamily }"
+                          @change="selectedText.fontFamily = $event.target.value">
+                    <template x-for="fg in fontOptions" :key="fg.group">
+                      <optgroup :label="fg.group">
+                        <template x-for="font in fg.values" :key="font">
+                          <option :value="font" :selected="selectedText.fontFamily === font" :style="{ fontFamily: font }" x-text="font"></option>
+                        </template>
+                      </optgroup>
+                    </template>
+                  </select>
+                </label>
+
+                <div class="field">
+                  <span x-text="t('ui.fontSize')"></span>
+                  <div class="color-opacity-group">
+                    <input type="range" min="12" max="200" step="1" x-model.number="selectedText.fontSize">
+                    <input type="number" min="12" max="200" class="settings-input size-input" x-model.number="selectedText.fontSize">
+                  </div>
+                </div>
+
+                <div class="field">
+                  <span x-text="t('ui.textColorLabel')"></span>
+                  <div class="color-opacity-group">
+                    <input type="color" x-model="selectedText.color">
+                    <input type="range" min="0" max="1" step="0.1" x-model.number="selectedText.opacity">
+                    <span class="opacity-value" x-text="selectedText.opacity"></span>
+                  </div>
+                </div>
+
+                <div class="toggle-row">
+                  <label class="checkbox-label"><input type="checkbox" x-model="selectedText.bold"> <span x-text="t('ui.bold')"></span></label>
+                  <label class="checkbox-label"><input type="checkbox" x-model="selectedText.italic"> <span x-text="t('ui.italic')"></span></label>
+                  <label class="checkbox-label"><input type="checkbox" x-model="selectedText.shadow"> <span x-text="t('ui.shadow')"></span></label>
+                </div>
+
+                <div class="field">
+                  <span x-text="t('ui.textBackground')"></span>
+                  <div class="color-opacity-group">
+                    <input type="color" x-model="selectedText.bgColor">
+                    <input type="range" min="0" max="1" step="0.1" x-model.number="selectedText.bgOpacity">
+                    <span class="opacity-value" x-text="selectedText.bgOpacity"></span>
+                  </div>
+                  <small class="sidebar-hint" x-text="t('ui.textBackgroundHint')"></small>
+                </div>
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <!-- Notes (months only) -->
+        <template x-if="selectedMonth">
+          <section class="page-notes-section">
+            <h3 x-text="t('ui.notes')"></h3>
+            <p class="sidebar-hint" x-text="t('ui.notesHint')"></p>
+            <div class="calendar-grid-editor">
+              <template x-for="day in getDayNames()" :key="day">
+                <div class="day-name-header" x-text="day"></div>
+              </template>
+              <template x-for="(date, idx) in getMonthDatesForEditor()" :key="selectedPage + '-' + idx">
+                <div class="date-cell-editor"
+                     @click="date && openNoteEditor(date)"
+                     :class="{
+                       'weekend': date && isWeekend(date),
+                       'has-note': date && hasNote(date),
+                       'today': date && isToday(date),
+                       'empty': !date
+                     }">
+                  <span class="date-number" x-text="date ? date.getDate() : ''"></span>
+                  <span class="note-indicator" x-show="date && hasNote(date)">●</span>
+                </div>
+              </template>
+            </div>
+          </section>
+        </template>
+
+        <template x-if="selectedMonth">
+          <div class="overrides-header">
+            <h2 class="sidebar-subtitle" x-text="t('ui.monthStyles')"></h2>
+            <p class="sidebar-hint" x-text="t('ui.monthStylesHint')"></p>
+            <button type="button" class="btn btn-secondary btn-small"
+                    :disabled="!monthOverrideCount(selectedMonth)"
+                    @click="resetMonthStyles(selectedMonth)"
+                    x-text="t('ui.resetAllToCommon')"></button>
+          </div>
+        </template>
+        <p class="sidebar-hint" x-show="!selectedMonth" x-text="t('ui.commonPageHint')"></p>
+      </div>
+
+      <!-- Shared style editor: common (Calendar settings) or month overrides (Page) -->
+      <div class="style-editor" x-show="currentView === 'settings' || (currentView === 'page' && selectedMonth)">
+        <template x-for="group in styleGroups" :key="group.id">
+          <section class="style-section" x-show="groupVisible(group)">
+            <h3 x-text="t('ui.' + group.label)"></h3>
+            <template x-for="field in group.fields" :key="field.key">
+              <div class="style-field"
+                   :class="{ 'is-overridden': isFieldOverridden(field), 'is-inherited': !fieldEditable(field) }">
+                <div class="style-field-head">
+                  <span class="style-field-label" x-text="t('ui.' + field.label)"></span>
+                  <label class="override-toggle" x-show="editingOverrides" :title="t('ui.overrideHint')">
+                    <input type="checkbox"
+                           :checked="isFieldOverridden(field)"
+                           @change="toggleFieldOverride(field, $event.target.checked)">
+                    <span x-text="t('ui.override')"></span>
+                  </label>
+                </div>
+
+                <template x-if="field.type === 'template'">
+                  <div class="template-selector">
+                    <template x-for="opt in field.options" :key="opt.value">
+                      <button type="button" class="btn btn-template"
+                              :class="{ active: getStyleValue(field.key) === opt.value }"
+                              :disabled="!fieldEditable(field)"
+                              @click="setStyleValue(field.key, opt.value)"
+                              x-text="t('ui.' + opt.label)"></button>
+                    </template>
+                  </div>
+                </template>
+
+                <template x-if="field.type === 'color'">
+                  <div class="color-opacity-group">
+                    <input type="color"
+                           :value="getStyleValue(field.key)"
+                           :disabled="!fieldEditable(field)"
+                           @input="setStyleValue(field.key, $event.target.value)">
+                    <input type="range" min="0" max="1" step="0.1"
+                           :value="getStyleValue(field.opacityKey)"
+                           :disabled="!fieldEditable(field)"
+                           @input="setStyleValue(field.opacityKey, Number($event.target.value))">
+                    <span class="opacity-value" x-text="getStyleValue(field.opacityKey)"></span>
+                  </div>
+                </template>
+
+                <template x-if="field.type === 'range'">
+                  <div class="color-opacity-group">
+                    <input type="range" :min="field.min" :max="field.max" :step="field.step"
+                           :value="getStyleValue(field.key)"
+                           :disabled="!fieldEditable(field)"
+                           @input="setStyleValue(field.key, Number($event.target.value))">
+                    <span class="opacity-value" x-text="getStyleValue(field.key)"></span>
+                  </div>
+                </template>
+
+                <template x-if="field.type === 'number'">
+                  <input type="number" class="settings-input" :min="field.min" :max="field.max"
+                         :value="getStyleValue(field.key)"
+                         :disabled="!fieldEditable(field)"
+                         @input="$event.target.value !== '' && setStyleValue(field.key, Number($event.target.value))">
+                </template>
+
+                <template x-if="field.type === 'select' && field.options">
+                  <select class="settings-select" :disabled="!fieldEditable(field)"
+                          @change="setStyleValue(field.key, $event.target.value)">
+                    <template x-for="opt in field.options" :key="opt.value">
+                      <option :value="opt.value" :selected="getStyleValue(field.key) === opt.value"
+                              x-text="opt.text || t('ui.' + opt.label)"></option>
+                    </template>
+                  </select>
+                </template>
+
+                <template x-if="field.type === 'select' && field.fontGroups">
+                  <select class="settings-select" :disabled="!fieldEditable(field)"
+                          :style="{ fontFamily: getStyleValue(field.key) }"
+                          @change="setStyleValue(field.key, $event.target.value)">
+                    <template x-for="fg in field.fontGroups" :key="fg.group">
+                      <optgroup :label="fg.group">
+                        <template x-for="font in fg.values" :key="font">
+                          <option :value="font" :selected="getStyleValue(field.key) === font"
+                                  :style="{ fontFamily: font }" x-text="font"></option>
+                        </template>
+                      </optgroup>
+                    </template>
+                  </select>
+                </template>
+
+                <template x-if="field.type === 'checkbox'">
+                  <label class="checkbox-label">
+                    <input type="checkbox"
+                           :checked="!!getStyleValue(field.key)"
+                           :disabled="!fieldEditable(field)"
+                           @change="setStyleValue(field.key, $event.target.checked)">
+                    <span x-text="t('ui.enabled')"></span>
+                  </label>
+                </template>
+              </div>
+            </template>
+          </section>
+        </template>
+      </div>
+
+      <!-- Full calendar: download -->
+      <div x-show="currentView === 'calendar'" class="sidebar-section">
+        <h2 x-text="t('ui.download')"></h2>
+        <label class="settings-form">
+          <span x-text="t('ui.pageSize')"></span>
           <select x-model="pageSize" class="settings-select">
             <option value="a4" x-text="t('ui.pageSizeA4')"></option>
             <option value="a3" x-text="t('ui.pageSizeA3')"></option>
             <option value="letter" x-text="t('ui.pageSizeLetter')"></option>
           </select>
-          <button @click="generatePDF()" class="btn btn-success btn-pdf">
-            <span x-text="t('ui.generatePDF')"></span>
+        </label>
+        <button @click="generatePDF()" class="btn btn-success btn-pdf">
+          <span x-text="t('ui.generatePDF')"></span>
+        </button>
+
+        <h2 class="sidebar-subtitle" x-text="t('ui.projectFile')"></h2>
+        <div class="project-actions">
+          <button @click="saveProject()" class="btn btn-primary" :disabled="isSaving">
+            <span x-text="isSaving ? t('ui.saving') : t('ui.saveProject')"></span>
           </button>
+          <button @click="$refs.importInput.click()" class="btn btn-secondary">
+            <span x-text="t('ui.importProject')"></span>
+          </button>
+          <button @click="exportProject()" class="btn btn-secondary">
+            <span x-text="t('ui.exportProject')"></span>
+          </button>
+          <input type="file" x-ref="importInput" @change="importProject($event)" accept=".json" style="display: none;">
         </div>
-        
-        <div class="style-section">
-          <h3 x-text="t('ui.template')"></h3>
-          <div class="template-selector">
-            <button @click="template = 'top'" 
-                    :class="{'active': template === 'top'}"
-                    class="btn btn-template"
-                    x-text="t('ui.templateTop')">
-            </button>
-            <button @click="template = 'overlay'" 
-                    :class="{'active': template === 'overlay'}"
-                    class="btn btn-template"
-                    x-text="t('ui.templateOverlay')">
-            </button>
-          </div>
-        </div>
+        <p class="sidebar-hint" x-show="lastSaved" x-text="t('ui.lastSaved') + ': ' + formatTime(lastSaved)"></p>
+        <p class="sidebar-hint" x-text="t('ui.projectFileHint')"></p>
 
-        <div class="style-section">
-          <h3 x-text="t('ui.colors')"></h3>
-          <div class="color-controls">
-            <div class="color-item">
-              <span x-text="t('ui.textColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.textColor">
-                <input type="range" x-model.number="styles.textColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.textColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.dateColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.dateColor">
-                <input type="range" x-model.number="styles.dateColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.dateColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.weekendColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.weekendColor">
-                <input type="range" x-model.number="styles.weekendColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.weekendColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.monthHeaderColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.monthHeaderColor">
-                <input type="range" x-model.number="styles.monthHeaderColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.monthHeaderColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.dayNameColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.dayNameColor">
-                <input type="range" x-model.number="styles.dayNameColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.dayNameColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.noteColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.noteColor">
-                <input type="range" x-model.number="styles.noteColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.noteColorOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.cellBgColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.cellBgColor">
-                <input type="range" x-model.number="styles.cellBgOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.cellBgOpacity"></span>
-              </div>
-            </div>
-            <div class="color-item">
-              <span x-text="t('ui.cellBorderColor')"></span>
-              <div class="color-opacity-group">
-                <input type="color" x-model="styles.cellBorderColor">
-                <input type="range" x-model.number="styles.cellBorderColorOpacity" min="0" max="1" step="0.1">
-                <span class="opacity-value" x-text="styles.cellBorderColorOpacity"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="style-section">
-          <h3 x-text="t('ui.fonts')"></h3>
-          <label>
-            <span x-text="t('ui.fontFamily')"></span>
-            <select x-model="styles.fontFamily">
-              <optgroup label="System Fonts">
-                <option value="Arial">Arial</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Times New Roman">Times New Roman</option>
-                <option value="Courier New">Courier New</option>
-                <option value="Verdana">Verdana</option>
-              </optgroup>
-              <optgroup label="Google Fonts">
-                <option value="Roboto">Roboto</option>
-                <option value="Open Sans">Open Sans</option>
-                <option value="Lato">Lato</option>
-                <option value="Montserrat">Montserrat</option>
-                <option value="Playfair Display">Playfair Display</option>
-                <option value="Merriweather">Merriweather</option>
-                <option value="Raleway">Raleway</option>
-                <option value="Poppins">Poppins</option>
-                <option value="Dancing Script">Dancing Script</option>
-                <option value="Pacifico">Pacifico</option>
-              </optgroup>
-            </select>
-          </label>
-          <label>
-            <span x-text="t('ui.fontSize')"></span>
-            <input type="number" x-model.number="styles.fontSize" min="8" max="24">
-          </label>
-          <label>
-            <span x-text="t('ui.monthHeaderSize')"></span>
-            <input type="number" x-model.number="styles.monthHeaderSize" min="16" max="48">
-          </label>
-          <label>
-            <span x-text="t('ui.monthHeaderAlign')"></span>
-            <select x-model="styles.monthHeaderAlign">
-              <option value="left" x-text="t('ui.alignLeft')"></option>
-              <option value="center" x-text="t('ui.alignCenter')"></option>
-              <option value="right" x-text="t('ui.alignRight')"></option>
-            </select>
-          </label>
-          <label>
-            <span x-text="t('ui.monthHeaderTransform')"></span>
-            <select x-model="styles.monthHeaderTransform">
-              <option value="normal" x-text="t('ui.textNormal')"></option>
-              <option value="uppercase" x-text="t('ui.textUppercase')"></option>
-            </select>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" x-model="styles.monthHeaderShadow">
-            <span x-text="t('ui.monthHeaderShadow')"></span>
-          </label>
-        </div>
-
-        <div class="style-section">
-          <h3 x-text="t('ui.borders')"></h3>
-          <label>
-            <span x-text="t('ui.borderWidth')"></span>
-            <input type="number" x-model.number="styles.cellBorderWidth" min="0" max="10">
-          </label>
-          <label>
-            <span x-text="t('ui.borderStyle')"></span>
-            <select x-model="styles.cellBorderStyle">
-              <option value="solid">Solid</option>
-              <option value="dashed">Dashed</option>
-              <option value="dotted">Dotted</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="style-section" x-show="template === 'overlay'">
-          <h3 x-text="t('ui.opacity')"></h3>
-          <label>
-            <span x-text="t('ui.imageOpacity')"></span>
-            <input type="range" x-model.number="styles.overlayOpacity" min="0" max="1" step="0.1">
-            <span x-text="styles.overlayOpacity"></span>
-          </label>
-          <label>
-            <span x-text="t('ui.calendarOpacity')"></span>
-            <input type="range" x-model.number="styles.calendarOpacity" min="0" max="1" step="0.1">
-            <span x-text="styles.calendarOpacity"></span>
-          </label>
-        </div>
+        <h3 x-text="t('ui.summary')"></h3>
+        <ul class="summary-list">
+          <li x-text="t('ui.summaryPages').replace('{n}', pageList.length)"></li>
+          <li x-show="pagesWithoutImage.length">
+            <span x-text="t('ui.summaryNoImage')"></span>
+            <template x-for="slot in pagesWithoutImage" :key="slot">
+              <button type="button" class="badge badge-link" @click="openPage(slot)" x-text="slotShortLabel(slot)"></button>
+            </template>
+          </li>
+          <li x-show="monthsWithOverrides.length">
+            <span x-text="t('ui.summaryOverrides')"></span>
+            <template x-for="m in monthsWithOverrides" :key="m">
+              <button type="button" class="badge badge-link" @click="openPage('m' + m)" x-text="slotShortLabel('m' + m)"></button>
+            </template>
+          </li>
+        </ul>
       </div>
-    </div>
-  </div>
+    </aside>
   </main>
 
   <!-- Note Editor Modal -->
@@ -802,6 +737,39 @@
     </div>
   </div>
 
+  <!-- Image Crop Editor Modal -->
+  <div x-show="cropEditorOpen"
+       class="modal-overlay"
+       @mousedown="cropBackdropDown = $event.target === $el"
+       @click.self="cropBackdropDown && closeCropEditor(); cropBackdropDown = false"
+       @keydown.escape.window="cropEditorOpen && closeCropEditor()">
+    <div class="modal-content crop-modal">
+      <h3>
+        <span x-text="t('ui.adjustImage')"></span>
+        <span class="crop-slot-label" x-text="getCropSlotLabel()"></span>
+      </h3>
+      <p class="crop-hint" x-text="t('ui.adjustImageHint')"></p>
+
+      <div class="crop-stage" x-ref="cropContainer"></div>
+
+      <div class="crop-zoom">
+        <button type="button" class="btn btn-secondary btn-zoom" @click="setCropZoom(cropZoom / 1.2)" :title="t('ui.zoomOut')">−</button>
+        <input type="range" min="1" max="8" step="0.01"
+               :value="cropZoom"
+               @input="setCropZoom($event.target.value)"
+               :aria-label="t('ui.zoom')">
+        <button type="button" class="btn btn-secondary btn-zoom" @click="setCropZoom(cropZoom * 1.2)" :title="t('ui.zoomIn')">+</button>
+        <span class="crop-zoom-value" x-text="Math.round(cropZoom * 100) + '%'"></span>
+      </div>
+
+      <div class="modal-actions">
+        <button @click="applyCrop()" class="btn btn-primary" x-text="t('ui.apply')"></button>
+        <button @click="resetCrop()" class="btn btn-secondary" x-text="t('ui.resetCrop')"></button>
+        <button @click="closeCropEditor()" class="btn btn-secondary" x-text="t('ui.cancel')"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- PDF Generation Overlay -->
   <div x-show="isGeneratingPDF" 
        class="pdf-overlay"
@@ -816,6 +784,6 @@
       <p class="pdf-progress-text" x-text="`${pdfProgress}%`"></p>
     </div>
   </div>
-
+
 </body>
 </html>
